@@ -8,14 +8,26 @@ async function handler() {
   const completion = await openai.chat.completions.create({
     messages: [
       { role: "system", content: "レシピ作成アシスタント"},
-      { role: "user", content: "おでん"},
+      { role: "user", content: "豚の角煮"},
     ],
     model: "gpt-4o-mini",
+    stream: true,
   });
 
-  const content = completion.choices[0].message.content;
+  const body = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of completion) {
+        const message = chunk.choices[0].delta.content;
+        if(message === undefined) {
+          controller.close();
+          return;
+      }
+      controller.enqueue(new TextEncoder().encode(message ?? ""));
+      }
+    },
+  });
 
-  const response = new Response(content, {
+  const response = new Response(body, {
     headers: {
       "content-type": "text/plain;charset=utf-8",
     },
